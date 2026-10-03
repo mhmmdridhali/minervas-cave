@@ -102,8 +102,8 @@ if (existsSync(distDirectory)) {
 
 app.use((error: unknown, _request: Request, response: Response, _next: NextFunction) => {
   void _next
-  console.error('Ruang request failed:', error instanceof Error ? error.message : error)
+  console.error('Minerva\u2019s Cave request failed:', error instanceof Error ? error.message : error)
   response.status(500).json({ error: 'Internal error' })
 })
 
-app.listen(PORT, HOST, () => console.log(`Ruang listening on http://${HOST}:${PORT}${existsSync(distDirectory) ? ' (serving built UI)' : ' (API only; run the Vite dev server for the UI)'}`))
+app.listen(PORT, HOST, () => console.log(`Minerva\u2019s Cave listening on http://${HOST}:${PORT}${existsSync(distDirectory) ? ' (serving built UI)' : ' (API only; run the Vite dev server for the UI)'}`))

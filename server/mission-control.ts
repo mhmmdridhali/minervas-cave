@@ -831,7 +831,7 @@ export const officeRooms = [
   { id: 'Lounge', label: 'Lounge', description: 'A quiet break and idle room.' },
 ] as const
 
-const ACTIVE_TASK_ORDER = ['running', 'review']
+const ACTIVE_TASK_ORDER = ['running', 'review', 'blocked']
 
 function attributedTask(tasks: Task[], aliases: readonly string[]): Task | undefined {
   const mine = tasks.filter((task) => task.assignee && aliases.includes(task.assignee.trim().toLowerCase()))
@@ -846,7 +846,7 @@ function attributedTask(tasks: Task[], aliases: readonly string[]): Task | undef
 function taskState(task: Task | undefined): OfficeState {
   if (!task) return 'Unknown'
   if (task.status.toLowerCase() === 'running') return 'Working'
-  if (task.status.toLowerCase() === 'review') return 'Reviewing'
+  if (task.status.toLowerCase() === 'review' || task.status.toLowerCase() === 'blocked') return 'Reviewing'
   return 'Unknown'
 }
 
@@ -929,7 +929,7 @@ export function buildOfficeSnapshot(runtime: RuntimeSnapshot, board: TaskBoardSn
       ? live.probe.active ? `${live.probe.label ?? 'Active'}${live.probe.lastSeen ? ` (last log ${live.probe.lastSeen})` : ''}` : `No activity in the last ${ACTIVITY_WINDOW}`
       : activity.sessions.availability === 'unavailable' ? 'Not Available' : collaboration === 'Collaborating' ? 'Attributed active collaboration session' : 'No attributed recent activity'
     const runtimeProvenance = agent.profile ? `Gateway ${gateway ?? 'Unknown'} (hermes profile list)` : 'OpenCode version availability is not a state signal'
-    const managedIdle = state === 'Idle' ? '; Ruang managed-idle placement policy (not agent-reported presence)' : ''
+    const managedIdle = state === 'Idle' ? '; Minerva\u2019s Cave managed-idle placement policy (inferensi 60dtk, bukan realtime; not agent-reported presence)' : ''
     const liveProvenance = options.agentActivity ? `; live activity (${agent.profile ? `hermes -p ${agent.profile} logs/sessions` : 'agent logs mentioning OpenCode'}, last ${ACTIVITY_WINDOW}): ${!agentActivity || !live.known ? 'unavailable' : live.state !== 'Unknown' ? live.probe?.kind ?? 'active' : 'none'}` : ''
     return {
       id: agent.id,

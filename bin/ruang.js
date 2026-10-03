@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from 'node:fs'
 const packageJson = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 const args = process.argv.slice(2)
 
-const help = `Ruang · Hermes 3D Virtual Office ${packageJson.version}
+const help = `Minerva\u2019s Cave · Hermes 3D Virtual Office ${packageJson.version}
 A 3D virtual office and read-only mission control for your Hermes Agent and OpenCode crew.
 
 Usage: ruang [options]
@@ -26,7 +26,7 @@ on a remote machine, forward the port: ssh -L 3001:127.0.0.1:3001 user@host`
 
 async function accessCode(action) {
   const module = new URL('../build/server/access.js', import.meta.url)
-  if (!existsSync(module)) { console.error('Ruang is not built. From a source checkout, run: npm run build'); process.exit(1) }
+  if (!existsSync(module)) { console.error('Minerva\u2019s Cave is not built. From a source checkout, run: npm run build'); process.exit(1) }
   const { AccessStore, generateCode } = await import(module.href)
   const store = new AccessStore()
   if (action === 'status' || action === undefined) {
@@ -34,7 +34,7 @@ async function accessCode(action) {
     console.log(!state.enabled ? 'Access code: off' : state.file ? `Access code: on (set ${state.file.createdAt})` : `Access code: on, but ${store.path} cannot be read. Run: ruang access-code off`)
   } else if (action === 'off') {
     await store.clear()
-    console.log('Access code removed. Ruang opens without a code; set a new one in Settings.')
+    console.log('Access code removed. Minerva\u2019s Cave opens without a code; set a new one in Settings.')
   } else if (action === 'new') {
     const code = generateCode()
     await store.set(code)
@@ -65,7 +65,7 @@ for (let index = 0; index < args.length; index += 1) {
 
 const server = new URL('../build/server/index.js', import.meta.url)
 if (!existsSync(server)) {
-  console.error('Ruang is not built. From a source checkout, run: npm run build')
+  console.error('Minerva\u2019s Cave is not built. From a source checkout, run: npm run build')
   process.exit(1)
 }
 await import(server.href)
