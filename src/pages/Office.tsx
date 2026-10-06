@@ -1,5 +1,6 @@
 import { lazy, Suspense, useState, type CSSProperties } from 'react'
 import { agentLook } from '../agents.ts'
+import { formatRelative } from '../format.ts'
 import { officeStateBadge } from '../office-state.ts'
 import { usePolling } from '../polling.ts'
 import type { ActivitySnapshot, ChannelSnapshot, DashboardSnapshot, OfficeSnapshot, OfficeStation } from '../types.ts'
@@ -55,6 +56,7 @@ export function OfficeDetail({ station, onClose }: { station: OfficeStation; onC
 
 function SyncBadge({ office }: { office: OfficeSnapshot | undefined }) {
   const summary = office?.summary
+  const fetched = office?.fetchedAt
   return (
     <div style={{
       display: 'inline-flex',
@@ -75,6 +77,7 @@ function SyncBadge({ office }: { office: OfficeSnapshot | undefined }) {
       }}/>
       <span style={{ color: 'var(--muted)' }}>
         {summary ? `${summary.active}/${summary.declared} aktif` : 'Menyambung...'}
+        {fetched && <span style={{ marginLeft: '8px' }}>· {formatRelative(fetched)}</span>}
       </span>
     </div>
   )

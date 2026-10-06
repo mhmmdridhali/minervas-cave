@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { statusTone } from '../format.ts'
+import { statusTone, formatRelative } from '../format.ts'
 import { usePolling } from '../polling.ts'
 import type { OfficeSnapshot, OfficeStation, RuntimeSnapshot } from '../types.ts'
 import { SourceStatus, Unavailable } from '../ui.tsx'
@@ -121,7 +121,7 @@ function AgentCard({ agent, station, cronCount }: { agent: string; station?: Off
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
             <dt style={{ color: 'var(--muted)' }}>Heartbeat</dt>
-            <dd style={{ color: 'var(--text-dim)' }}>{station?.freshness ?? '—'}</dd>
+            <dd style={{ color: 'var(--text-dim)' }} title={station?.freshness ?? ''}>{formatRelative(station?.freshness)}</dd>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <dt style={{ color: 'var(--muted)' }}>Task</dt>
@@ -203,7 +203,7 @@ function AgentDetailDialog({ agent, station, onClose }: { agent: string; station
           </div>
           <div>
             <dt style={{ color: 'var(--muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '.07em', marginBottom: '4px' }}>Freshness</dt>
-            <dd style={{ fontSize: '13px' }}>{station?.freshness ?? '—'}</dd>
+            <dd style={{ fontSize: '13px' }} title={station?.freshness ?? ''}>{formatRelative(station?.freshness)}</dd>
           </div>
         </dl>
       </section>

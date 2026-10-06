@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { usePolling } from '../polling.ts'
 import type { ActivitySnapshot, Session } from '../types.ts'
 import { EmptyState, SourceStatus, Unavailable } from '../ui.tsx'
@@ -6,12 +6,20 @@ import { EmptyState, SourceStatus, Unavailable } from '../ui.tsx'
 const IDLE_MESSAGES = [
   'Menunggu instruksi...',
   'Siap bekerja',
-  'Idle',
-  'Tidak ada aktivitas',
-  'Diam...',
-  'Bosan',
-  'Nongkrong',
-  'Mikir...',
+  'Stanby, siap dipanggil',
+  'Cek antrean tugas...',
+  'Tidak ada antrean, santai dulu',
+  'Menunggu arahan Minerva',
+  'Siap 24/7',
+  'Kantor sepi, tetap siaga',
+  'Menunggu cron berikutnya',
+  'Istirahat sejenak...',
+  'Baterai penuh, siap gas',
+  'Mengawasi dashboard...',
+  'Tidak ada tugas aktif',
+  'Siap menerima perintah',
+  'Mode siaga',
+  'Menunggu pesan masuk...',
 ]
 
 const SOURCE_COLORS: Record<string, string> = {
@@ -85,13 +93,18 @@ function getIcon(source?: string) {
 
 function formatRelative(iso: string | undefined): string {
   if (!iso) return '—'
-  const d = new Date(iso)
-  const now = Date.now()
-  const diff = now - d.getTime()
-  if (diff < 60000) return 'baru saja'
-  if (diff < 3600000) return `${Math.floor(diff / 60000)} menit lalu`
-  if (diff < 86400000) return `${Math.floor(diff / 3600000)} jam lalu`
-  return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+  const time = Date.parse(iso)
+  if (Number.isFinite(time)) {
+    const d = new Date(time)
+    const now = Date.now()
+    const diff = now - d.getTime()
+    if (diff < 60_000) return 'baru saja'
+    if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} mnt lalu`
+    if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} jam lalu`
+    return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })
+  }
+  // Already a relative string like "3d ago" - return as-is
+  return iso
 }
 
 function SessionItem({ session, idleMessage }: { session: Session; idleMessage?: string }) {
@@ -172,8 +185,8 @@ function SkeletonItem() {
   )
 }
 
-function getIdleMessage(agent: string, index: number): string {
-  const seed = [...agent].reduce((a, c) => a + c.charCodeAt(0), 0) + index
+function getIdleMessage(agent: string, index: number, rotationSeed: number): string {
+  const seed = [...agent].reduce((a, c) => a + c.charCodeAt(0), 0) + index + rotationSeed
   return IDLE_MESSAGES[seed % IDLE_MESSAGES.length]
 }
 
@@ -182,7 +195,7 @@ export function Activity() {
   const data = snapshot.status === 'ready' ? snapshot.data : undefined
   const sessions = data?.sessions
 
-  const idleCounter = useMemo(() => Math.floor(Date.now() / 5000), [snapshot.status])
+  const [rotationSeed] = useState(() => Math.floor(Date.now() / 5000))
 
   const byDate = useMemo(() => {
     const map = new Map<string, Session[]>()
@@ -241,7 +254,7 @@ export function Activity() {
               </h2>
               {dateSessions.map((session, i) => {
                 const isIdle = session.active === false || !session.preview
-                const idleMsg = isIdle && byDate.size >= 5 ? getIdleMessage(session.actor ?? session.title, idleCounter + i) : undefined
+                const idleMsg = isIdle && byDate.size >= 5 ? getIdleMessage(session.actor ?? session.title, i, rotationSeed) : undefined
                 return <SessionItem key={session.id ?? `${session.title}-${i}`} session={session} idleMessage={idleMsg} />
               })}
             </section>

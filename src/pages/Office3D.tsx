@@ -72,9 +72,12 @@ export default function Office3D({ stations, onSelect }: Office3DProps) {
       {visible ? (
         <SceneBoundary
           fallback={
-            <div className="office-3d-unavailable">
-              <h2>3D view unavailable</h2>
-              <p>The 3D office could not start on this device. Switch back to 2D.</p>
+            <div className="office-3d-unavailable" role="alert">
+              <h2>Tampilan 3D tidak tersedia</h2>
+              <p>Perangkat ini tidak mendukung WebGL. Silakan gunakan tampilan 2D.</p>
+              <button type="button" className="refresh-button" onClick={() => window.location.hash = '#/office-2d'}>
+                Buka Kantor 2D
+              </button>
             </div>
           }
         >

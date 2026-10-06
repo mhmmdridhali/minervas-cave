@@ -1,6 +1,7 @@
 import { useCallback, useRef, useState } from 'react'
 import { agentLook } from '../agents.ts'
 import { officeStateBadge } from '../office-state.ts'
+import { formatRelative } from '../format.ts'
 import { usePolling } from '../polling.ts'
 import { useCaveStore } from '../store.ts'
 import type { CalendarSnapshot, OfficeSnapshot, OfficeStation } from '../types.ts'
@@ -124,7 +125,7 @@ function StationCard({ station, cronCount, isExpanded, onToggle }: StationCardPr
       <div className="station-card-body" style={{ marginTop: 'var(--space-sm)', fontSize: '13px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
           <span style={{ color: 'var(--text-muted)', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>LAST HEARTBEAT</span>
-          <span style={{ fontSize: '12px' }}>{station.freshness || '—'}</span>
+          <span style={{ fontSize: '12px' }} title={station.freshness || ''}>{formatRelative(station.freshness)}</span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
           <span style={{ color: 'var(--text-muted)', fontSize: '11px', fontFamily: 'var(--font-mono)' }}>TASK</span>
@@ -164,7 +165,9 @@ export function Office2D() {
   }, [calendar])
 
   const stations = office?.stations ?? []
-  const sortedStations = [...stations].sort((a, b) => {
+  const sortedStations = [...stations]
+    .filter((s) => s.id.toLowerCase() !== 'default')
+    .sort((a, b) => {
     const aIndex = STATION_ORDER.indexOf(a.id.toLowerCase())
     const bIndex = STATION_ORDER.indexOf(b.id.toLowerCase())
     if (aIndex === -1 && bIndex === -1) return 0

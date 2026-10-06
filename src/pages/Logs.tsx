@@ -5,6 +5,7 @@ import type { CommandLogSnapshot, LogLevel, LogsSnapshot } from '../types.ts'
 import { EmptyState, LoadingState, PageTitle, SearchInput, SourceStatus } from '../ui.tsx'
 
 const LEVELS: ('ALL' | LogLevel)[] = ['ALL', 'ERROR', 'WARNING', 'INFO', 'DEBUG']
+const DEFAULT_LEVEL: 'ALL' | LogLevel = 'ERROR'
 const MISSION_CONTROL = 'mission-control'
 
 export function Logs() {
@@ -12,7 +13,7 @@ export function Logs() {
   const logs = usePolling<LogsSnapshot>('/api/logs', follow ? 5_000 : 0)
   const commands = usePolling<CommandLogSnapshot>('/api/command-log', follow ? 5_000 : 0)
   const [tab, setTab] = useState('agent')
-  const [level, setLevel] = useState<'ALL' | LogLevel>('ALL')
+  const [level, setLevel] = useState<'ALL' | LogLevel>(DEFAULT_LEVEL)
   const [query, setQuery] = useState('')
   const viewer = useRef<HTMLPreElement>(null)
   const data = logs.status === 'ready' ? logs.data : undefined
