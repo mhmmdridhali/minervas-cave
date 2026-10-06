@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { usePolling } from '../polling.ts'
+import { useCaveStore } from '../store.ts'
 import type { DashboardSnapshot, RuntimeSnapshot } from '../types.ts'
 import { PageTitle } from '../ui.tsx'
 
@@ -44,14 +45,16 @@ function PulseDot({ color }: { color: string }) {
 }
 
 export function Dashboard() {
+  const store = useCaveStore()
   const dashboard = usePolling<DashboardSnapshot>('/api/dashboard', 15_000)
-  const runtime = usePolling<RuntimeSnapshot>('/api/runtime', 30_000)
+  const runtimePolling = usePolling<RuntimeSnapshot>('/api/runtime', 30_000)
 
   const dash = dashboard.status === 'ready' ? dashboard.data : null
-  const rt = runtime.status === 'ready' ? runtime.data : null
+  const sseReady = store.status === 'live' && store.runtime
+  const rt = sseReady ? store.runtime : runtimePolling.status === 'ready' ? runtimePolling.data : null
 
-  const loading = dashboard.status === 'pending' || runtime.status === 'pending'
-  const error = dashboard.status === 'failed' || runtime.status === 'failed'
+  const loading = dashboard.status === 'pending' || runtimePolling.status === 'pending'
+  const error = dashboard.status === 'failed' || runtimePolling.status === 'failed'
 
   if (loading) {
     return (
@@ -85,7 +88,7 @@ export function Dashboard() {
         <PageTitle eyebrow="DASHBOARD" title="Mission Control" />
         <div className="file-notice" role="alert">
           <strong>Masalah.</strong> Data tidak dapat dimuat.
-          <button type="button" className="refresh-button" onClick={() => { void dashboard.refresh(); void runtime.refresh() }}>Muat Ulang</button>
+          <button type="button" className="refresh-button" onClick={() => { void dashboard.refresh(); void runtimePolling.refresh() }}>Muat Ulang</button>
         </div>
       </>
     )
@@ -167,7 +170,7 @@ export function Dashboard() {
         </div>
       </div>
       <div className="dash-footer">
-        <button type="button" className="refresh-button" onClick={() => { void dashboard.refresh(); void runtime.refresh() }} aria-label="Refresh dashboard">Muat Ulang</button>
+        <button type="button" className="refresh-button" onClick={() => { void dashboard.refresh(); void runtimePolling.refresh() }} aria-label="Refresh dashboard">Muat Ulang</button>
         <span className="dash-sync">{dash?.fetchedAt ? `Updated ${new Date(dash.fetchedAt).toLocaleTimeString()}` : 'Connecting...'}</span>
       </div>
     </>

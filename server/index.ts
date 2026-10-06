@@ -3,7 +3,8 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import express, { type NextFunction, type Request, type Response } from 'express'
 import { excludedFor, FolderError, listFolder, publicAgent, readFolderFile, resolveAgentFolders } from './folders.js'
-import { installAccess } from './access.js'
+import { installAccess, AccessStore } from './access.js'
+import { installEvents } from './events.js'
 import { API_VERSION } from './api-version.js'
 import { collectMemory } from './memory.js'
 import { getActivity, getCalendar, getChannels, getCommandLog, getDashboard, getKnowledge, getLogs, getOffice, getSnapshot, getTaskBoard, getTaskDetail, getUsage } from './mission-control.js'
@@ -24,6 +25,9 @@ app.use('/api', (_request, response, next) => {
 
 const startedAt = new Date().toISOString()
 app.get('/api/health', (_request, response) => { response.json({ ok: true, apiVersion: API_VERSION, startedAt }) })
+
+const accessStore = new AccessStore()
+installEvents(app, accessStore)
 
 // Optional access code (off by default): locks every other /api route until it is entered.
 installAccess(app)

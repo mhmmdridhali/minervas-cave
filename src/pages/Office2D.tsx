@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react'
 import { agentLook } from '../agents.ts'
 import { officeStateBadge } from '../office-state.ts'
 import { usePolling } from '../polling.ts'
+import { useCaveStore } from '../store.ts'
 import type { CalendarSnapshot, OfficeSnapshot, OfficeStation } from '../types.ts'
 
 const STATION_ORDER = ['minerva', 'builder', 'content', 'leadengineering', 'tracker', 'opencode']
@@ -140,12 +141,14 @@ function StationCard({ station, cronCount, isExpanded, onToggle }: StationCardPr
 }
 
 export function Office2D() {
+  const store = useCaveStore()
   const officePolling = usePolling<OfficeSnapshot>('/api/office', 10_000)
   const calendarPolling = usePolling<CalendarSnapshot>('/api/calendar', 30_000)
 
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
-  const office = officePolling.status === 'ready' ? officePolling.data : undefined
+  const sseReady = store.status === 'live' && store.office
+  const office = sseReady ? store.office : officePolling.status === 'ready' ? officePolling.data : undefined
   const calendar = calendarPolling.status === 'ready' ? calendarPolling.data : undefined
 
   const cronCountByAgent = useCallback(() => {
@@ -176,7 +179,10 @@ export function Office2D() {
     setExpandedId((prev) => (prev === id ? null : id))
   }
 
-  if (officePolling.status === 'pending') {
+  const isPending = !sseReady && officePolling.status === 'pending'
+  const isFailed = !sseReady && officePolling.status === 'failed'
+
+  if (isPending) {
     return (
       <div style={{ padding: 'var(--space-md)' }}>
         <div style={{ marginBottom: 'var(--space-md)' }}>
@@ -190,7 +196,7 @@ export function Office2D() {
     )
   }
 
-  if (officePolling.status === 'failed') {
+  if (isFailed) {
     return (
       <div style={{ padding: 'var(--space-md)' }}>
         <div className="notice" role="alert">

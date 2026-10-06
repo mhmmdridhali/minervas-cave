@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { formatDateTime, orderedStatuses, statusTone } from '../format.ts'
 import { usePolling } from '../polling.ts'
 import { loadSnapshot, type RequestState } from '../request-state.ts'
+import { useCaveStore } from '../store.ts'
 import type { Task, TaskBoardSnapshot, TaskDetailSnapshot } from '../types.ts'
 import { Dialog, EmptyState, PageTitle, SearchInput, SourceStatus, Unavailable } from '../ui.tsx'
 
@@ -54,6 +55,7 @@ export function TaskDetailDialog({ task, onClose, onOpenTask }: { task: Task; on
 }
 
 export function TaskBoard() {
+  const store = useCaveStore()
   const snapshot = usePolling<TaskBoardSnapshot>('/api/tasks', 10_000)
   const [query, setQuery] = useState('')
   const [assignee, setAssignee] = useState('all')
@@ -61,7 +63,8 @@ export function TaskBoard() {
   const [openTask, setOpenTask] = useState<Task | undefined>()
   const trigger = useRef<HTMLButtonElement | null>(null)
   const closeTask = () => { setOpenTask(undefined); trigger.current?.focus() }
-  const data = snapshot.status === 'ready' ? snapshot.data : undefined
+  const sseReady = store.status === 'live' && store.tasks
+  const data = sseReady ? store.tasks : snapshot.status === 'ready' ? snapshot.data : undefined
   const tasks = data?.tasks
   const all = tasks?.data ?? []
   const assignees = [...new Set(all.map((task) => task.assignee ?? UNASSIGNED))].sort()

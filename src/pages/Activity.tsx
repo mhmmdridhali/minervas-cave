@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { usePolling } from '../polling.ts'
+import { useCaveStore } from '../store.ts'
 import type { ActivitySnapshot } from '../types.ts'
 import { EmptyState, PageTitle, SearchInput, SourceStatus, Unavailable } from '../ui.tsx'
 
 export function Activity() {
+  const store = useCaveStore()
   const snapshot = usePolling<ActivitySnapshot>('/api/activity', 15_000)
   const [query, setQuery] = useState('')
-  const data = snapshot.status === 'ready' ? snapshot.data : undefined
+  const sseReady = store.status === 'live' && store.activity
+  const data = sseReady ? store.activity : snapshot.status === 'ready' ? snapshot.data : undefined
   const sessions = data?.sessions
   const needle = query.trim().toLowerCase()
   const visible = (sessions?.data ?? []).filter((session) => !needle || `${session.title} ${session.preview} ${session.workspace ?? ''} ${session.source ?? ''}`.toLowerCase().includes(needle))
