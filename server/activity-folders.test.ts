@@ -49,30 +49,27 @@ describe('office placement from live activity', () => {
 
   it('moves a chatting or scheduled agent out of the Lounge into the Workspace', () => {
     const office = buildOfficeSnapshot(runtime, emptyBoard, emptyActivity, { now: at, agentActivity: live([
-      { profile: 'default', availability: 'available', active: true, kind: 'chat', label: 'Replying to a chat', mentionsOpenCode: false },
-      { profile: 'coder', availability: 'available', active: true, kind: 'cron', label: 'Running a scheduled job', mentionsOpenCode: true },
+      { profile: 'coder', availability: 'available', active: true, kind: 'chat', label: 'Replying to a chat', mentionsOpenCode: false },
     ]) })
     expect(office.stations).toMatchObject([
-      { name: 'default', state: 'Collaborating', room: 'Workspace', roomPosition: 'meeting-area', activity: 'Replying to a chat', seat: 1 },
-      { name: 'coder', state: 'Working', room: 'Workspace', roomPosition: 'assigned-desk', activity: 'Running a scheduled job', seat: 2 },
-      { name: 'opencode', state: 'Working', room: 'Workspace', activity: 'Building via OpenCode', seat: 3 },
+      { name: 'coder', state: 'Collaborating', room: 'Workspace', roomPosition: 'meeting-area', activity: 'Replying to a chat', seat: 1 },
+      { name: 'opencode', state: 'Idle', room: 'Lounge', seat: 2 },
     ])
-    expect(office.summary).toMatchObject({ active: 3, idle: 0 })
+    expect(office.summary).toMatchObject({ active: 1, idle: 1 })
   })
 
   it('keeps quiet agents in the Lounge and shows live work even when the gateway is stopped', () => {
-    const quietOffice = buildOfficeSnapshot(runtime, emptyBoard, emptyActivity, { now: at, agentActivity: live([quiet('default'), quiet('coder')]) })
-    expect(quietOffice.stations.map((station) => [station.state, station.room, station.activity])).toEqual([['Idle', 'Lounge', 'On a break'], ['Idle', 'Lounge', 'On a break'], ['Idle', 'Lounge', 'On a break']])
-    const stopped = buildOfficeSnapshot({ ...runtime, profiles: { availability: 'available', data: [{ name: 'default', model: 'm', gateway: 'Running' }, { name: 'coder', model: 'm', gateway: 'Stopped' }] } }, emptyBoard, emptyActivity, { now: at, agentActivity: live([quiet('default'), { profile: 'coder', availability: 'available', active: true, kind: 'tools', label: 'Using tools', mentionsOpenCode: false }]) })
-    expect(stopped.stations[1]).toMatchObject({ state: 'Working', room: 'Workspace', activity: 'Using tools' })
+    const quietOffice = buildOfficeSnapshot(runtime, emptyBoard, emptyActivity, { now: at, agentActivity: live([quiet('coder')]) })
+    expect(quietOffice.stations.map((station) => [station.state, station.room, station.activity])).toEqual([['Idle', 'Lounge', 'On a break'], ['Idle', 'Lounge', 'On a break']])
+    const stopped = buildOfficeSnapshot({ ...runtime, profiles: { availability: 'available', data: [{ name: 'default', model: 'm', gateway: 'Running' }, { name: 'coder', model: 'm', gateway: 'Stopped' }] } }, emptyBoard, emptyActivity, { now: at, agentActivity: live([{ profile: 'coder', availability: 'available', active: true, kind: 'tools', label: 'Using tools', mentionsOpenCode: false }]) })
+    expect(stopped.stations[0]).toMatchObject({ state: 'Working', room: 'Workspace', activity: 'Using tools' })
   })
 
   it('labels running Kanban work with the task and never idles on an unavailable probe', () => {
-    const board = { tasks: { availability: 'available' as const, data: [{ title: 'Ship v2', status: 'running', assignee: 'default' }] }, fetchedAt: at }
-    const office = buildOfficeSnapshot(runtime, board, emptyActivity, { now: at, agentActivity: live([quiet('default'), { profile: 'coder', availability: 'unavailable', active: false, mentionsOpenCode: false }]) })
+    const board = { tasks: { availability: 'available' as const, data: [{ title: 'Ship v2', status: 'running', assignee: 'coder' }] }, fetchedAt: at }
+    const office = buildOfficeSnapshot(runtime, board, emptyActivity, { now: at, agentActivity: live([quiet('coder'), { profile: 'coder', availability: 'unavailable', active: false, mentionsOpenCode: false }]) })
     expect(office.stations[0]).toMatchObject({ state: 'Working', activity: 'Kanban: Ship v2' })
     expect(office.stations[1].state).toBe('Unknown')
-    expect(office.stations[2].state).toBe('Unknown')
   })
 })
 

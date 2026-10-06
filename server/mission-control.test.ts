@@ -147,17 +147,16 @@ describe('Office snapshot', () => {
     fetchedAt: '2026-09-27T12:00:00.000Z',
   }
 
-  it('places the no-work crew in Lounge as server-managed Idle', () => {
+  it('places the no-work crew in Lounge as server-managed Idle (default filtered out)', () => {
     const office = buildOfficeSnapshot(runtime, { tasks: { availability: 'available', data: [] }, fetchedAt: runtime.fetchedAt }, { sessions: { availability: 'available', data: [] }, fetchedAt: runtime.fetchedAt }, { now: runtime.fetchedAt })
 
     expect(office.stations).toMatchObject([
-      { name: 'default', room: 'Lounge', roomPosition: 'lounge-seat-1', state: 'Idle' },
-      { name: 'coder', room: 'Lounge', roomPosition: 'lounge-seat-2', state: 'Idle' },
-      { name: 'opencode', room: 'Lounge', roomPosition: 'lounge-seat-3', state: 'Idle' },
+      { name: 'coder', room: 'Lounge', roomPosition: 'lounge-seat-1', state: 'Idle' },
+      { name: 'opencode', room: 'Lounge', roomPosition: 'lounge-seat-2', state: 'Idle' },
     ])
-    expect(office.stations[2].provenance).toContain('OpenCode version availability is not a state signal')
+    expect(office.stations[1].provenance).toContain('OpenCode version availability is not a state signal')
     expect(office.stations[0].provenance).toContain('managed-idle placement policy')
-    expect(office.summary).toEqual({ declared: 3, active: 0, idle: 3, offline: 0, unknown: 0, gatewaysReachable: 2, gatewaysDeclared: 2 })
+    expect(office.summary).toEqual({ declared: 2, active: 0, idle: 2, offline: 0, unknown: 0, gatewaysReachable: 2, gatewaysDeclared: 2 })
   })
 
   it('uses only station-bound stopped gateways and actor-attributed Kanban tasks for work state', () => {
@@ -170,7 +169,6 @@ describe('Office snapshot', () => {
     }, { sessions: { availability: 'available', data: [] }, fetchedAt: '2026-09-27T12:00:00.000Z' }, { now: runtime.fetchedAt })
 
     expect(office.stations).toMatchObject([
-      { id: 'default', name: 'default', role: 'Hermes profile', room: 'Lounge', state: 'Idle', currentTask: 'No attributed task', recentActivity: 'No attributed recent activity' },
       { name: 'coder', room: 'Workspace', state: 'Reviewing', currentTask: 'Review the office', recentActivity: 'No attributed recent activity' },
       { name: 'opencode', room: 'Lounge', state: 'Idle', currentTask: 'No attributed task' },
     ])
@@ -180,22 +178,21 @@ describe('Office snapshot', () => {
     const unavailable = buildOfficeSnapshot(runtime, { tasks: { availability: 'unavailable', data: [] }, fetchedAt: runtime.fetchedAt }, { sessions: { availability: 'available', data: [] }, fetchedAt: runtime.fetchedAt }, { now: runtime.fetchedAt })
     const stale = buildOfficeSnapshot(runtime, { tasks: { availability: 'available', data: [] }, fetchedAt: '2026-09-27T11:58:00.000Z' }, { sessions: { availability: 'available', data: [] }, fetchedAt: runtime.fetchedAt }, { now: runtime.fetchedAt })
 
-    expect(unavailable.stations.map((station) => station.state)).toEqual(['Unknown', 'Unknown', 'Unknown'])
-    expect(stale.stations.map((station) => station.state)).toEqual(['Unknown', 'Unknown', 'Unknown'])
+    expect(unavailable.stations.map((station) => station.state)).toEqual(['Unknown', 'Unknown'])
+    expect(stale.stations.map((station) => station.state)).toEqual(['Unknown', 'Unknown'])
   })
 
   it('maps office states to rooms and keeps unknown agents in a labelled neutral workspace position', () => {
     const office = buildOfficeSnapshot(runtime, { tasks: { availability: 'available', data: [] }, fetchedAt: runtime.fetchedAt }, { sessions: { availability: 'available', data: [] }, fetchedAt: runtime.fetchedAt }, { now: runtime.fetchedAt })
     expect(office.stations).toMatchObject([
-      { name: 'default', room: 'Lounge', roomPosition: 'lounge-seat-1' },
-      { name: 'coder', room: 'Lounge', roomPosition: 'lounge-seat-2' },
-      { name: 'opencode', room: 'Lounge', roomPosition: 'lounge-seat-3' },
+      { name: 'coder', room: 'Lounge', roomPosition: 'lounge-seat-1' },
+      { name: 'opencode', room: 'Lounge', roomPosition: 'lounge-seat-2' },
     ])
   })
 
   it('summarizes only declared office states and reports gateway health separately', () => {
     const office = buildOfficeSnapshot(runtime, { tasks: { availability: 'available', data: [] }, fetchedAt: runtime.fetchedAt }, { sessions: { availability: 'available', data: [] }, fetchedAt: runtime.fetchedAt }, { now: runtime.fetchedAt })
-    expect(buildOfficeSummary(office.stations, runtime)).toEqual({ declared: 3, active: 0, idle: 3, offline: 0, unknown: 0, gatewaysReachable: 2, gatewaysDeclared: 2 })
+    expect(buildOfficeSummary(office.stations, runtime)).toEqual({ declared: 2, active: 0, idle: 2, offline: 0, unknown: 0, gatewaysReachable: 2, gatewaysDeclared: 2 })
   })
 
   it('does not treat a stopped gateway as Offline (CLI agents need none) and never turns OpenCode version into a work state', () => {
@@ -203,13 +200,13 @@ describe('Office snapshot', () => {
       ...runtime,
       profiles: { availability: 'available', data: [{ name: 'default', model: 'm', gateway: 'Stopped' }, { name: 'coder', model: 'm', gateway: 'Running' }] },
     }, {
-      tasks: { availability: 'available', data: [{ title: 'Active lead work', status: 'running', assignee: 'default' }] },
+      tasks: { availability: 'available', data: [{ title: 'Active lead work', status: 'running', assignee: 'coder' }] },
       fetchedAt: '2026-09-27T12:00:00.000Z',
     }, { sessions: { availability: 'unavailable', data: [], error: { code: 'COMMAND_FAILED', message: 'Read command was unavailable.' } }, fetchedAt: '2026-09-27T12:00:00.000Z' }, { now: runtime.fetchedAt })
 
-    expect(office.stations[0]).toMatchObject({ name: 'default', state: 'Working', currentTask: 'Active lead work', recentActivity: 'Not Available' })
+    expect(office.stations[0]).toMatchObject({ name: 'coder', state: 'Working', currentTask: 'Active lead work', recentActivity: 'Not Available' })
     expect(office.stations.some((station) => station.state === 'Offline')).toBe(false)
-    expect(office.stations[2]).toMatchObject({ name: 'opencode', state: 'Unknown' })
+    expect(office.stations[1]).toMatchObject({ name: 'opencode', state: 'Unknown' })
   })
 
   it('does not turn unassigned work, generic sessions, gateway Running, or a version into active state', () => {
@@ -219,14 +216,14 @@ describe('Office snapshot', () => {
       sessions: { availability: 'available', data: [{ title: 'Generic session', preview: 'work', lastActive: 'now' }] }, fetchedAt: runtime.fetchedAt,
     }, { now: runtime.fetchedAt })
 
-    expect(office.stations.map((station) => station.state)).toEqual(['Idle', 'Idle', 'Idle'])
+    expect(office.stations.map((station) => station.state)).toEqual(['Idle', 'Idle'])
   })
 
   it('uses a fresh explicit overlay before attributed work and expires it', () => {
-    const board = { tasks: { availability: 'available' as const, data: [{ title: 'Lead work', status: 'running', assignee: 'default' }] }, fetchedAt: runtime.fetchedAt }
+    const board = { tasks: { availability: 'available' as const, data: [{ title: 'Lead work', status: 'running', assignee: 'coder' }] }, fetchedAt: runtime.fetchedAt }
     const activity = { sessions: { availability: 'available' as const, data: [] }, fetchedAt: runtime.fetchedAt }
-    const active = buildOfficeSnapshot(runtime, board, activity, { now: runtime.fetchedAt, explicitStates: [{ station: 'default', state: 'Reviewing', expiresAt: '2026-09-27T12:00:10.000Z' }] })
-    const expired = buildOfficeSnapshot(runtime, board, activity, { now: '2026-09-27T12:00:20.000Z', explicitStates: [{ station: 'default', state: 'Reviewing', expiresAt: '2026-09-27T12:00:10.000Z' }] })
+    const active = buildOfficeSnapshot(runtime, board, activity, { now: runtime.fetchedAt, explicitStates: [{ station: 'coder', state: 'Reviewing', expiresAt: '2026-09-27T12:00:10.000Z' }] })
+    const expired = buildOfficeSnapshot(runtime, board, activity, { now: '2026-09-27T12:00:20.000Z', explicitStates: [{ station: 'coder', state: 'Reviewing', expiresAt: '2026-09-27T12:00:10.000Z' }] })
 
     expect(active.stations[0].state).toBe('Reviewing')
     expect(expired.stations[0].state).toBe('Working')

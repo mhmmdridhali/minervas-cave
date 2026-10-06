@@ -441,9 +441,9 @@ function describeFailure(error: unknown): CommandError {
   if (error instanceof CommandError) return error
   const detail = (error ?? {}) as { code?: unknown; killed?: boolean; signal?: unknown; stdout?: unknown; message?: unknown }
   const stdout = typeof detail.stdout === 'string' ? detail.stdout : ''
-  if (detail.killed || detail.signal === 'SIGTERM' || /timed? ?out/i.test(String(detail.message ?? ''))) return new CommandError('Read timed out.', 'TIMEOUT', stdout)
-  if (detail.code === 'ENOENT') return new CommandError('Command not installed or not on PATH.', 'COMMAND_FAILED', stdout)
-  if (detail.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') return new CommandError('Command output exceeded the read limit.', 'COMMAND_FAILED', stdout)
+  if (detail.killed || detail.signal === 'SIGTERM' || /timed? ?out/i.test(String(detail.message ?? ''))) return new CommandError('Read timed out after 8s.', 'TIMEOUT', stdout)
+  if (detail.code === 'ENOENT') return new CommandError('Command not found on PATH. Binary may be missing or not installed.', 'COMMAND_FAILED', stdout)
+  if (detail.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER') return new CommandError('Command output exceeded 16MB read limit.', 'COMMAND_FAILED', stdout)
   if (typeof detail.code === 'number') return new CommandError(`Command exited with code ${detail.code}.`, 'COMMAND_FAILED', stdout)
   return new CommandError('Read command was unavailable.', 'COMMAND_FAILED', stdout)
 }
@@ -500,10 +500,12 @@ async function read<T>(run: Run, file: string, args: string[], parse: (output: s
 /** Profile names passed to `hermes -p`: plain names only, never anything that looks like an option. */
 export const PROFILE_NAME = /^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/
 
+export const OPENCODE_BIN = '/home/ubuntu/.local/bin/opencode'
+
 export async function collectSnapshot(run: Run = systemRun): Promise<RuntimeSnapshot> {
   const [profiles, openCode] = await Promise.all([
     read(run, 'hermes', ['profile', 'list'], parseProfiles, []),
-    read(run, 'opencode', ['--version'], (value) => value.trim().split('\n').pop()?.trim() || 'Unknown', 'Unknown'),
+    read(run, OPENCODE_BIN, ['--version'], (value) => value.trim().split('\n').pop()?.trim() || 'Unknown', 'Unknown'),
   ])
   return { profiles, openCode, fetchedAt: new Date().toISOString() }
 }
@@ -821,7 +823,9 @@ interface AgentSpec { id: string; role: string; profile?: string; gateway?: Gate
 
 export function agentRoster(runtime: RuntimeSnapshot): AgentSpec[] {
   const profiles = runtime.profiles.availability === 'available' ? runtime.profiles.data : []
-  const agents: AgentSpec[] = profiles.filter((profile) => PROFILE_NAME.test(profile.name)).map((profile) => ({ id: profile.name, role: 'Hermes profile', profile: profile.name, gateway: profile.gateway, aliases: [profile.name.toLowerCase()] }))
+  const agents: AgentSpec[] = profiles
+    .filter((profile) => PROFILE_NAME.test(profile.name) && profile.name !== 'default')
+    .map((profile) => ({ id: profile.name, role: 'Hermes profile', profile: profile.name, gateway: profile.gateway, aliases: [profile.name.toLowerCase()] }))
   if (runtime.openCode.availability === 'available' && !agents.some((agent) => agent.id === 'opencode')) agents.push({ id: 'opencode', role: 'OpenCode', aliases: ['opencode', 'open-code'] })
   return agents
 }

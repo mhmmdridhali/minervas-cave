@@ -70,7 +70,7 @@ describe('Hermes profile list', () => {
   it('derives the default gateway from the profile table', async () => {
     const snapshot = await collectSnapshot(async (file, args) => {
       if (args.join(' ') === 'profile list') return profileList
-      if (file === 'opencode') return 'opencode 0.14.2\n'
+      if (file === 'opencode' || file.endsWith('/opencode')) return 'opencode 0.14.2\n'
       return '✗ Gateway is not running\n\nTo start:\n  hermes gateway run      # Run in foreground\n'
     })
     expect(snapshot.profiles.data.map((profile) => [profile.name, profile.gateway])).toEqual([['default', 'Running'], ['coder', 'Stopped'], ['scratch', 'Stopped']])
@@ -329,7 +329,7 @@ describe('Office attribution', () => {
   it('prefers a running task over an earlier finished one for the same agent', () => {
     const at = '2026-09-27T12:00:00.000Z'
     const runtime = { profiles: { availability: 'available' as const, data: [{ name: 'default', model: 'm', gateway: 'Running' as const }, { name: 'coder', model: 'm', gateway: 'Running' as const }] }, openCode: { availability: 'available' as const, data: '1' }, fetchedAt: at }
-    const office = buildOfficeSnapshot(runtime, { tasks: { availability: 'available', data: [{ title: 'Old', status: 'done', assignee: 'default' }, { title: 'Now', status: 'running', assignee: 'default' }] }, fetchedAt: at }, { sessions: { availability: 'available', data: [] }, fetchedAt: at }, { now: at })
+    const office = buildOfficeSnapshot(runtime, { tasks: { availability: 'available', data: [{ title: 'Old', status: 'done', assignee: 'coder' }, { title: 'Now', status: 'running', assignee: 'coder' }] }, fetchedAt: at }, { sessions: { availability: 'available', data: [] }, fetchedAt: at }, { now: at })
     expect(office.stations[0]).toMatchObject({ state: 'Working', currentTask: 'Now' })
   })
 })
