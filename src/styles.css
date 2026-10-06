@@ -703,3 +703,31 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
   0%, 100% { box-shadow: 0 0 0 0 var(--pulse-color); }
   50% { box-shadow: 0 0 0 5px transparent; }
 }
+
+/* Office 2D page grid */
+.office-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-md); }
+@media (max-width: 768px) { .office-grid { grid-template-columns: 1fr; } }
+
+/* Station card for Office 2D page */
+.station-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: var(--space-md); transition: transform 0.15s, box-shadow 0.15s; }
+.station-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-2); }
+.station-card.expanded { border-color: var(--accent); }
+.station-card-header { align-items: center; background: transparent; border: 0; color: var(--text); cursor: pointer; display: flex; gap: var(--space-sm); padding: 0; text-align: left; width: 100%; }
+.station-card-header:hover { color: var(--accent); }
+.station-meta { display: grid; gap: 2px; min-width: 0; }
+
+/* Status dot with pulse animation */
+.status-dot { width: 12px; height: 12px; border-radius: 50%; animation: pulse 2s infinite; flex-shrink: 0; }
+@media (prefers-reduced-motion: reduce) { .status-dot { animation: none; } }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+/* Detail panel slide down animation */
+.detail-panel { margin-top: var(--space-sm); padding-top: var(--space-sm); border-top: 1px solid var(--border); animation: slideDown 0.2s; }
+@keyframes slideDown { from { opacity: 0; max-height: 0; } to { opacity: 1; max-height: 500px; } }
+
+/* Skeleton loading card */
+.skeleton-card { pointer-events: none; }
+.skeleton-avatar { background: var(--border); border-radius: 50%; height: 40px; width: 40px; animation: skeleton-pulse 1.5s ease-in-out infinite; }
+.skeleton-lines { display: grid; gap: 6px; flex: 1; }
+.skeleton-line { background: var(--border); border-radius: 4px; height: 12px; animation: skeleton-pulse 1.5s ease-in-out infinite; }
+@keyframes skeleton-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }
