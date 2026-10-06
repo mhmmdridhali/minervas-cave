@@ -655,3 +655,51 @@ aside.office-panel { background: color-mix(in srgb, var(--surface) 96%, transpar
 .office-panel .usage-sections { grid-template-columns: 1fr; }
 .usage-page { margin-top: 20px; }
 .usage-page .usage-card, .office-overlay .usage-card { margin-bottom: 0; }
+
+/* Office 2D Grid fallback (accessibility) */
+.office-2d-grid { display: grid; gap: 16px; padding: 16px; }
+.office-2d-header { align-items: center; display: flex; gap: 12px; justify-content: space-between; }
+.office-2d-header h2 { font-size: 18px; margin: 0; }
+.office-2d-count { color: var(--text-muted); font: 11px ui-monospace, monospace; }
+.office-2d-stations { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+.office2d-station-card { align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); cursor: pointer; display: grid; gap: 8px; padding: 14px; text-align: left; }
+.office2d-station-card:hover { border-color: var(--accent); }
+.office2d-station-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.office2d-station-card.state-offline { opacity: 0.65; }
+.station-card-header { align-items: center; display: flex; gap: 8px; }
+.station-pulse-ring { --pulse-color: var(--muted); background: var(--pulse-color); border-radius: 50%; display: inline-block; flex: none; height: 10px; width: 10px; }
+@media (prefers-reduced-motion: no-preference) {
+  .station-pulse-ring { animation: station-pulse 2s ease-in-out infinite; }
+}
+@keyframes station-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--pulse-color); }
+  50% { box-shadow: 0 0 0 6px transparent; }
+}
+.station-name { font-size: 14px; font-weight: 500; }
+.station-character { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0; }
+.station-character .character-head { background: var(--skin); border-radius: 4px; height: 20px; width: 18px; }
+.station-character .character-body { background: var(--shirt); border-radius: 4px; height: 24px; width: 22px; }
+.station-info { align-items: center; display: flex; gap: 6px; flex-wrap: wrap; }
+.station-role { color: var(--text-muted); font-size: 11px; }
+.station-activity { background: var(--surface-2); border-radius: 4px; color: var(--text); font-size: 10px; padding: 4px 6px; }
+
+/* Office 3D skeleton loading */
+.office-3d-skeleton { align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; gap: 12px; justify-content: center; min-height: 300px; }
+.office-3d-skeleton .skeleton-pulse { animation: skeleton-pulse 1.5s ease-in-out infinite; background: var(--border); border-radius: 8px; height: 80px; width: 80px; }
+@keyframes skeleton-pulse { 0%, 100% { opacity: 0.4; } 50% { opacity: 0.8; } }
+.office-3d-skeleton span { color: var(--text-muted); font: 11px ui-monospace, monospace; }
+.office-3d-unavailable { align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; gap: 8px; justify-content: center; min-height: 300px; padding: 24px; text-align: center; }
+.office-3d-unavailable h2 { font-size: 16px; margin: 0; }
+.office-3d-unavailable p { color: var(--text-muted); font-size: 13px; margin: 0; }
+.office-3d-paused { align-items: center; background: var(--surface); border: 1px solid var(--border); border-radius: 8px; display: flex; justify-content: center; min-height: 300px; }
+.office-3d-paused span { color: var(--text-muted); font: 11px ui-monospace, monospace; }
+
+/* Pulse ring on 3D labels */
+.pulse-ring { --pulse-duration: 2s; --pulse-color: var(--muted); background: var(--pulse-color); border-radius: 50%; display: inline-block; flex: none; height: 8px; width: 8px; }
+@media (prefers-reduced-motion: no-preference) {
+  .pulse-ring { animation: pulse-ring var(--pulse-duration, 2s) ease-in-out infinite; }
+}
+@keyframes pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 0 var(--pulse-color); }
+  50% { box-shadow: 0 0 0 5px transparent; }
+}
