@@ -1,105 +1,297 @@
-import { useState } from 'react'
-import { formatDateTime, formatNumber } from '../format.ts'
+import { useEffect, useMemo, useState } from 'react'
 import { usePolling } from '../polling.ts'
-import type { AgentMemory, MemoryDocument, MemorySnapshot, MemoryStore } from '../types.ts'
-import { EmptyState, LoadingState, PageTitle, SearchInput, SourceStatus, Unavailable } from '../ui.tsx'
-import { PixelCharacter } from './Office.tsx'
+import type { KnowledgeSnapshot, Skill } from '../types.ts'
+import { EmptyState, SourceStatus, Unavailable } from '../ui.tsx'
 
-function DocumentBody({ document, empty }: { document?: MemoryDocument; empty: string }) {
-  if (!document || !document.exists) return <p className="muted">{empty}</p>
-  if (document.error) return <p className="file-notice locked">{document.error}</p>
-  return <>
-    <p className="doc-meta">{formatNumber(document.chars ?? 0)} chars · updated {formatDateTime(document.modified)}{document.redactions ? ` · ${document.redactions} line(s) redacted` : ''}{document.truncated ? ' · showing first 256 KB' : ''}</p>
-    <pre className="task-text doc-text">{document.content || <span className="muted">(empty file)</span>}</pre>
-  </>
+function ChevronIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s' }}
+    >
+      <polyline points="9 18 15 12 9 6"/>
+    </svg>
+  )
 }
 
-function StoreCard({ title, subtitle, store, enabled, needle }: { title: string; subtitle: string; store?: MemoryStore; enabled: boolean; needle: string }) {
-  const percent = store?.percent ?? 0
-  const tone = percent >= 100 ? 'bad' : percent >= 80 ? 'unknown' : 'good'
-  const entries = (store?.entries ?? []).map((entry, index) => ({ entry, index })).filter(({ entry }) => !needle || entry.toLowerCase().includes(needle))
-  return <article className="card memory-card">
-    <header className="memory-card-head"><div><p className="eyebrow">{title}</p><h2>{subtitle}</h2></div>{!enabled && <span className="badge muted">disabled in config</span>}</header>
-    {!store || !store.exists ? <p className="muted">No entries yet. <code>{store?.path ?? 'memories/'}</code> is created when the agent first saves with the <code>memory</code> tool.</p>
-      : store.error ? <p className="file-notice locked">{store.error}</p>
-        : <>
-          <div className="usage" role="img" aria-label={`${title} usage ${percent}%`}><i className={`tone-${tone}`} style={{ width: `${Math.min(100, percent)}%` }}/></div>
-          <p className="doc-meta"><b>{percent}%</b> — {formatNumber(store.used)} / {formatNumber(store.limit)} chars · {store.entries.length} entr{store.entries.length === 1 ? 'y' : 'ies'} · updated {formatDateTime(store.modified)}</p>
-          {percent >= 80 && <p className="file-notice">Above 80% of the limit. Hermes rejects writes that would exceed it, so the agent will need to consolidate entries soon.</p>}
-          {entries.length === 0 ? <p className="muted">{needle ? 'No matching entries.' : 'The file is empty.'}</p> : <ol className="memory-entries">{entries.map(({ entry, index }) => <li key={index}><span className="entry-index">§{index + 1}</span><p>{entry}</p><small>{formatNumber(entry.length)} chars</small></li>)}</ol>}
-        </>}
-  </article>
+function TreeIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+    </svg>
+  )
 }
 
-function AgentPanel({ agent, onOpenFolders }: { agent: AgentMemory; onOpenFolders?: () => void }) {
-  const [query, setQuery] = useState('')
-  const [openContext, setOpenContext] = useState<string | undefined>()
-  const needle = query.trim().toLowerCase()
-  if (!agent.available) return <EmptyState title="Not available">{agent.reason ?? 'This agent folder is not available.'}</EmptyState>
-  const settings = agent.settings
-  return <div className="memory-panel">
-    <div className="toolbar">
-      {agent.kind === 'hermes' && <SearchInput value={query} onChange={setQuery} label="Search memory entries"/>}
-      <code className="folder-path">{agent.path}</code>
-      {onOpenFolders && <button type="button" className="refresh-button" onClick={onOpenFolders}>OPEN IN FOLDERS →</button>}
+function SkillIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+    </svg>
+  )
+}
+
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(timer)
+  }, [value, delay])
+  return debounced
+}
+
+interface CategoryGroup {
+  name: string
+  skills: Skill[]
+}
+
+function CategoryNode({ group, searchOpen, onToggle }: { group: CategoryGroup; searchOpen: boolean; onToggle: () => void }) {
+  const isOpen = searchOpen || false
+  return (
+    <div style={{ borderBottom: '1px solid var(--border)' }}>
+      <button
+        type="button"
+        onClick={onToggle}
+        style={{
+          background: 'transparent',
+          border: 0,
+          color: 'var(--text)',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          padding: '12px 0',
+          width: '100%',
+          font: 'inherit',
+          fontSize: '14px',
+          fontWeight: 500,
+        }}
+        aria-expanded={isOpen}
+      >
+        <ChevronIcon open={isOpen} />
+        <TreeIcon />
+        <span>{group.name}</span>
+        <span style={{ color: 'var(--muted)', fontSize: '12px', marginLeft: 'auto' }}>({group.skills.length})</span>
+      </button>
+      {isOpen && (
+        <div style={{ paddingLeft: '24px', paddingBottom: '8px' }}>
+          {group.skills.map((skill) => (
+            <SkillLeaf key={skill.name} skill={skill} />
+          ))}
+        </div>
+      )}
     </div>
-    {settings && <div className="chip-row" aria-label="Memory settings">
-      <span className={`chip ${settings.memoryEnabled ? '' : 'chip-muted'}`}>memory {settings.memoryEnabled ? 'on' : 'off'}</span>
-      <span className={`chip ${settings.userProfileEnabled ? '' : 'chip-muted'}`}>user profile {settings.userProfileEnabled ? 'on' : 'off'}</span>
-      <span className={`chip ${settings.writeApproval ? 'chip-priority' : 'chip-muted'}`}>write approval {settings.writeApproval ? 'required' : 'off'}</span>
-      {settings.provider && <span className="chip chip-priority">external provider: {settings.provider}</span>}
-      <span className="chip chip-muted">limits from {settings.source}</span>
-    </div>}
-    {agent.kind === 'hermes' ? <>
-      <section className="memory-grid">
-        <StoreCard title="MEMORY.MD" subtitle="Agent notes" store={agent.memory} enabled={settings?.memoryEnabled ?? true} needle={needle}/>
-        <StoreCard title="USER.MD" subtitle="User profile" store={agent.user} enabled={settings?.userProfileEnabled ?? true} needle={needle}/>
-      </section>
-      <article className="card memory-soul">
-        <header className="memory-card-head"><div><p className="eyebrow">SOUL.MD · IDENTITY (SYSTEM PROMPT SLOT #1)</p><h2>Who this agent is</h2></div></header>
-        <DocumentBody document={agent.soul} empty="No SOUL.md in this profile. Hermes seeds a default one; the agent uses the built-in identity until then."/>
-      </article>
-    </> : <p className="card-note">OpenCode is not a Hermes profile, so it has no MEMORY.md / USER.md. Its global rules files are shown below.</p>}
-    <article className="card memory-soul">
-      <header className="memory-card-head"><div><p className="eyebrow">CONTEXT FILES</p><h2>{agent.kind === 'hermes' ? 'AGENTS.md, HERMES.md, CLAUDE.md…' : 'Global rules'}</h2></div></header>
-      {agent.contextFiles.length === 0 ? <p className="muted">No context files in this folder. Project context files (AGENTS.md, .hermes.md) usually live in the project being worked on, not in the profile.</p>
-        : <ul className="context-list">{agent.contextFiles.map((document) => <li key={document.path}>
-          <button type="button" className="file-row" aria-expanded={openContext === document.path} onClick={() => setOpenContext(openContext === document.path ? undefined : document.path)}><span className="file-icon" aria-hidden="true">📄</span><span className="file-name">{document.name}</span><span className="file-size">{formatNumber(document.chars ?? 0)} chars</span></button>
-          {openContext === document.path && <DocumentBody document={document} empty=""/>}
-        </li>)}</ul>}
-    </article>
-  </div>
+  )
 }
 
-/** One agent's memory (SOUL.md, MEMORY.md, USER.md, context files), for the Office agent dialog. */
-export function AgentMemoryView({ profile }: { profile: string }) {
-  const snapshot = usePolling<MemorySnapshot>('/api/memory', 30_000)
-  const agent = snapshot.status === 'ready' ? snapshot.data.agents.find((item) => item.profile === profile) : undefined
-  if (snapshot.status === 'pending') return <LoadingState message="Reading agent memory..."/>
-  if (snapshot.status === 'failed') return <EmptyState title="Not Available">{snapshot.message ?? 'Memory could not be read.'}</EmptyState>
-  if (!agent) return <EmptyState title="Not available">No memory was found for this agent.</EmptyState>
-  return <AgentPanel key={agent.profile} agent={agent}/>
+function SkillLeaf({ skill }: { skill: Skill }) {
+  const color = skill.trust === 'high' ? 'var(--success)' : skill.trust === 'medium' ? 'var(--warning)' : 'var(--danger)'
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: '8px',
+        padding: '8px 0',
+        borderBottom: '1px solid var(--border)',
+      }}
+    >
+      <SkillIcon />
+      <span style={{ flex: 1, fontSize: '13px' }}>{skill.name}</span>
+      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: color }} title={`Trust: ${skill.trust}`} />
+      {skill.source && (
+        <span style={{ color: 'var(--muted)', fontSize: '11px' }}>{skill.source}</span>
+      )}
+    </div>
+  )
 }
 
-export function Memory({ onOpenFolders }: { onOpenFolders?: () => void }) {
-  const snapshot = usePolling<MemorySnapshot>('/api/memory', 30_000)
+function SkeletonTree() {
+  return (
+    <div style={{ marginTop: '24px' }}>
+      {[...Array(4)].map((_, i) => (
+        <div key={i} style={{ borderBottom: '1px solid var(--border)', padding: '12px 0' }}>
+          <div style={{ background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', height: '14px', width: '40%', marginBottom: '12px' }} />
+          <div style={{ paddingLeft: '24px' }}>
+            {[...Array(3)].map((_, j) => (
+              <div key={j} style={{ background: 'var(--surface-2)', borderRadius: 'var(--radius-sm)', height: '10px', width: `${70 - j * 15}%`, marginBottom: '8px' }} />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function PreviewPanel({ skill }: { skill: Skill }) {
+  return (
+    <div style={{
+      background: 'var(--card)',
+      border: '1px solid var(--border)',
+      borderRadius: 'var(--radius-lg)',
+      padding: '20px',
+      marginTop: '16px',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+        <h3 style={{ fontSize: '20px', fontWeight: 500, letterSpacing: '-.04em', margin: 0 }}>{skill.name}</h3>
+        <span style={{
+          background: skill.trust === 'high' ? 'var(--success)' : skill.trust === 'medium' ? 'var(--warning)' : 'var(--danger)',
+          color: 'var(--bg)',
+          borderRadius: '10px',
+          padding: '2px 8px',
+          fontSize: '10px',
+          fontFamily: 'ui-monospace, monospace',
+        }}>
+          {skill.trust}
+        </span>
+      </div>
+      <dl style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '8px 16px', fontSize: '13px' }}>
+        <dt style={{ color: 'var(--muted)' }}>Kategori</dt>
+        <dd>{skill.category}</dd>
+        <dt style={{ color: 'var(--muted)' }}>Source</dt>
+        <dd>{skill.source || '—'}</dd>
+      </dl>
+      <div style={{ marginTop: '20px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+        <p style={{ color: 'var(--text-dim)', fontSize: '13px' }}>
+          Skill ini merupakan bagian dari kategori <strong>{skill.category}</strong>.
+          Status: <span style={{ color: skill.status === 'enabled' ? 'var(--success)' : 'var(--muted)' }}>{skill.status}</span>.
+        </p>
+      </div>
+    </div>
+  )
+}
+
+export function Memory({ onOpenFolders: _onOpenFolders }: { onOpenFolders?: () => void } = {}) {
+  const snapshot = usePolling<KnowledgeSnapshot>('/api/knowledge', 30_000)
   const data = snapshot.status === 'ready' ? snapshot.data : undefined
-  const [selected, setSelected] = useState<string | undefined>()
-  const agents = data?.agents ?? []
-  const agent = agents.find((item) => item.profile === selected) ?? agents.find((item) => item.available) ?? agents[0]
-  const source = data ? { availability: 'available' as const, data: null } : undefined
-  return <><PageTitle eyebrow="MEMORY & KNOWLEDGE" title="Memory">What each agent carries into every session: its identity (SOUL.md), its bounded memory (MEMORY.md and USER.md, injected as a frozen snapshot at session start) and its context files. Read-only; secrets are redacted.</PageTitle>
-    <SourceStatus source={source} fetchedAt={data?.fetchedAt} request={snapshot}/>
-    <Unavailable source={source} request={snapshot}/>
-    {snapshot.status === 'pending' ? <LoadingState message="Reading agent memory..."/> : agent && <>
-      <div className="memory-tabs" role="tablist" aria-label="Agents">{agents.map((item) => {
-        const peak = Math.max(item.memory?.percent ?? 0, item.user?.percent ?? 0)
-        return <button key={item.profile} role="tab" aria-selected={item.profile === agent.profile} className={`memory-tab${item.profile === agent.profile ? ' active' : ''}`} onClick={() => setSelected(item.profile)} disabled={!item.available}>
-          <span className="folder-glyph small" aria-hidden="true"><PixelCharacter agent={item.profile}/></span>
-          <span><strong>{item.label}</strong><small>{!item.available ? item.reason ?? 'not available' : item.kind === 'opencode' ? `${item.contextFiles.length} rules file(s)` : `${(item.memory?.entries.length ?? 0) + (item.user?.entries.length ?? 0)} entries · ${peak}% peak`}</small></span>
-        </button>
-      })}</div>
-      <AgentPanel key={agent.profile} agent={agent} onOpenFolders={onOpenFolders}/>
-    </>}
-  </>
+  const skills = data?.skills
+
+  const [query, setQuery] = useState('')
+  const [, setOpenCategories] = useState<Set<string>>(new Set())
+  const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null)
+
+  const debouncedQuery = useDebounce(query, 300)
+
+  const categories = useMemo(() => {
+    const map = new Map<string, Skill[]>()
+    const list = skills?.data ?? []
+    for (const skill of list) {
+      const existing = map.get(skill.category) ?? []
+      existing.push(skill)
+      map.set(skill.category, existing)
+    }
+    return [...map.entries()].map(([name, skills]) => ({ name, skills })).sort((a, b) => a.name.localeCompare(b.name))
+  }, [skills])
+
+  const filteredCategories = useMemo(() => {
+    if (!debouncedQuery.trim()) return categories
+    const needle = debouncedQuery.toLowerCase()
+    return categories
+      .map((group) => ({
+        ...group,
+        skills: group.skills.filter((s) => s.name.toLowerCase().includes(needle)),
+      }))
+      .filter((g) => g.skills.length > 0)
+  }, [categories, debouncedQuery])
+
+  const toggleCategory = (name: string) => {
+    setOpenCategories((prev) => {
+      const next = new Set(prev)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }
+
+  if (snapshot.status === 'pending') {
+    return (
+      <>
+        <h1 style={{ fontSize: '42px', fontWeight: 500, letterSpacing: '-.06em', marginBottom: '20px' }}>Memory</h1>
+        <SkeletonTree />
+      </>
+    )
+  }
+
+  return (
+    <>
+      <h1 style={{ fontSize: '42px', fontWeight: 500, letterSpacing: '-.06em', marginBottom: '20px' }}>Memory</h1>
+      <SourceStatus source={skills} fetchedAt={data?.fetchedAt} request={snapshot} />
+      <Unavailable source={skills} request={snapshot} />
+      {snapshot.status === 'failed' && (
+        <div style={{ background: 'var(--danger)', color: 'var(--bg)', padding: '14px 18px', marginBottom: '18px', borderRadius: 'var(--radius-md)' }} role="alert">
+          <strong>Masalah:</strong> Tidak dapat memuat data knowledge.{' '}
+          <button type="button" className="refresh-button" onClick={snapshot.refresh} style={{ marginLeft: '12px' }}>Muat Ulang</button>
+        </div>
+      )}
+      {skills?.availability === 'available' && skills.data.length === 0 && (
+        <EmptyState title="Belum ada skill">Tidak ada skill yang tersedia.</EmptyState>
+      )}
+      {skills?.availability === 'available' && skills.data.length > 0 && (
+        <>
+          <div className="toolbar" style={{ marginTop: '24px' }}>
+            <input
+              type="search"
+              className="search-input"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Cari skill"
+              aria-label="Cari skill"
+              style={{ background: 'var(--card)', border: '1px solid var(--border-strong)', borderRadius: '4px', color: 'var(--text)', padding: '8px 10px', flex: '1 1 220px', maxWidth: '360px' }}
+            />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: selectedSkill ? 'minmax(0, 1fr) 360px' : '1fr', gap: '24px', marginTop: '20px' }}>
+            <div>
+              {filteredCategories.length === 0 && debouncedQuery && (
+                <p style={{ color: 'var(--muted)', padding: '20px 0' }}>Tidak ada skill yang cocok dengan "{debouncedQuery}"</p>
+              )}
+              {filteredCategories.map((group) => (
+                <CategoryNode
+                  key={group.name}
+                  group={group}
+                  searchOpen={Boolean(debouncedQuery)}
+                  onToggle={() => {
+                    toggleCategory(group.name)
+                    if (!selectedSkill && group.skills.length > 0) {
+                      setSelectedSkill(group.skills[0])
+                    }
+                  }}
+                />
+              ))}
+            </div>
+            {selectedSkill && (
+              <div style={{ position: 'sticky', top: '16px', alignSelf: 'start' }}>
+                <button
+                  type="button"
+                  onClick={() => setSelectedSkill(null)}
+                  style={{
+                    background: 'transparent',
+                    border: 0,
+                    color: 'var(--muted)',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    marginBottom: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                  }}
+                  aria-label="Tutup preview"
+                >
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  Tutup
+                </button>
+                <PreviewPanel skill={selectedSkill} />
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </>
+  )
 }
