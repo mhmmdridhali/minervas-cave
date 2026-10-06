@@ -100,7 +100,15 @@ app.get('/api/folders/:profile/file', folderRoute(async (request) => {
 app.use('/api', (_request, response) => { response.status(404).json({ error: 'Not found' }) })
 
 if (existsSync(distDirectory)) {
-  app.use(express.static(distDirectory))
+  app.use(express.static(distDirectory, {
+    maxAge: '1y',
+    immutable: true,
+    setHeaders: (res, path) => {
+      if (path.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache, must-revalidate')
+      }
+    }
+  }))
   app.get(/^(?!\/api\/).*/, (_request, response) => { response.sendFile('index.html', { root: distDirectory }) })
 }
 
